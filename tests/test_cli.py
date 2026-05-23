@@ -53,6 +53,7 @@ def test_parser_has_all_commands():
         "psoc-locate-pin", "psoc-dump-block",
         "i2c-diff",
         "fw-identity-check",
+        "hddss-info", "hddss-patch",
         "opal-discovery", "opal-start-session",
         "ata-security-check", "ata-security-build",
         "scsi-inquiry", "scsi-read-capacity", "scsi-ses", "scsi-inquiry-cdb",

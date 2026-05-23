@@ -52,6 +52,8 @@ from hdd_toolkit.exploit.write_cache_fault import (
 )
 from hdd_toolkit.exploit.xbox360_firmware_spoof import (
     FirmwareIdentitySpoofDetector,
+    HddhackrFirmwarePatcher,
+    HddhackrSectorFile,
 )
 from hdd_toolkit.firmware.detection import FirmwareDetection
 from hdd_toolkit.firmware.patcher import FirmwarePatch, FirmwarePatcher
@@ -1479,6 +1481,51 @@ def cmd_fw_identity_check(args):
         ok("No firmware identity spoofing indicators detected")
 
 
+def cmd_hddss_info(args):
+    hdr(f"HDDHackr hddss.bin: {args.file}")
+    data = Path(args.file).read_bytes()
+    result = HddhackrSectorFile.parse(data)
+    if "error" in result:
+        err(result["error"])
+        return
+    info(f"Valid    : {result['valid']}")
+    info(f"Serial   : {result['serial']}")
+    info(f"FW Rev   : {result['fw_rev']}")
+    info(f"Model    : {result['model']}")
+    info(f"Sectors  : {result['sector_count']}")
+    info(f"Checksum : 0x{result['checksum']:04X} (expected 0x{HddhackrSectorFile.CHECKSUM_MAGIC:04X})")
+    if result["valid"]:
+        ok("Integrity check passed")
+    else:
+        warn("Integrity check FAILED (bad checksum or zero first word)")
+
+
+def cmd_hddss_patch(args):
+    hdr("HDDHackr firmware module 2 identity patch")
+    hddss_data = Path(args.hddss).read_bytes()
+    module2_data = Path(args.module2).read_bytes()
+    parsed = HddhackrSectorFile.parse(hddss_data)
+    if "error" in parsed:
+        err(parsed["error"])
+        return
+    if not parsed["valid"]:
+        warn("hddss.bin integrity check failed; proceeding anyway")
+    result = HddhackrFirmwarePatcher.patch_all(
+        module2=module2_data,
+        current_serial=args.current_serial,
+        current_model=args.current_model,
+        current_count=args.current_count,
+        new_serial=parsed["serial"],
+        new_model=parsed["model"],
+        new_count=parsed["sector_count"],
+    )
+    Path(args.output).write_bytes(result)
+    info(f"New serial : {parsed['serial']}")
+    info(f"New model  : {parsed['model']}")
+    info(f"New sectors: {parsed['sector_count']}")
+    ok(f"Patched module 2 written to {args.output}")
+
+
 # =============================================================================
 # TCG Opal / SED commands
 # =============================================================================
@@ -2756,6 +2803,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="512-byte SMART READ DATA response for serial cross-check",
     )
     sp.set_defaults(func=cmd_fw_identity_check)
+
+    sp = sub.add_parser(
+        "hddss-info",
+        help="Parse and display identity fields from an HDDHackr hddss.bin sector dump",
+    )
+    sp.add_argument("file", help="3584-byte hddss.bin sector dump file")
+    sp.set_defaults(func=cmd_hddss_info)
+
+    sp = sub.add_parser(
+        "hddss-patch",
+        help="Patch a WD firmware module 2 dump with identity from hddss.bin",
+    )
+    sp.add_argument("hddss", help="3584-byte hddss.bin identity source file")
+    sp.add_argument("module2", help="1024-byte firmware module 2 dump to patch")
+    sp.add_argument("output", help="Output file for patched module 2")
+    sp.add_argument("--current-serial", required=True, help="Current drive serial (from IDENTIFY)")
+    sp.add_argument("--current-model", required=True, help="Current drive model (from IDENTIFY)")
+    sp.add_argument(
+        "--current-count",
+        required=True,
+        type=int,
+        help="Current drive LBA28 sector count (from IDENTIFY word 60-61)",
+    )
+    sp.set_defaults(func=cmd_hddss_patch)
 
     # == TCG Opal / SED commands ==============================================
     sp = sub.add_parser(
