@@ -962,7 +962,7 @@ def cmd_wd100x_parse(args):
         out = Path(args.extract)
         out.mkdir(parents=True, exist_ok=True)
         for seg in image.segments:
-            name = f"wd100x_seg{seg.index:02d}_off{seg.offset:06X}.bin"
+            name = f"wd100x_seg{seg.index:02d}_offset{seg.offset:06X}.bin"
             out_file = out / name
             out_file.write_bytes(seg.data)
             ok(f"Wrote {out_file}")

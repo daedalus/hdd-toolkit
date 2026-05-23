@@ -52,29 +52,30 @@ def parse_wd100x_rom(
     Sources:
       - Clean-room design based on generic ROM image handling patterns.
     """
-    data = bytes(rom_data)
+    data_view = memoryview(rom_data)
     if segment_size <= 0:
         raise WD100xFormatError("segment_size must be > 0")
-    if require_aligned and (len(data) % segment_size != 0):
+    if require_aligned and (len(data_view) % segment_size != 0):
         raise WD100xFormatError("ROM size is not aligned to segment_size")
 
     segments: list[WD100xSegment] = []
-    for index, offset in enumerate(range(0, len(data), segment_size)):
-        chunk = data[offset : offset + segment_size]
+    for index, offset in enumerate(range(0, len(data_view), segment_size)):
+        chunk_view = data_view[offset : offset + segment_size]
+        chunk = chunk_view.tobytes()
         segments.append(
             WD100xSegment(
                 index=index,
                 offset=offset,
                 size=len(chunk),
-                digest_sha256=sha256(chunk).hexdigest(),
+                digest_sha256=sha256(chunk_view).hexdigest(),
                 data=chunk,
             )
         )
 
     return WD100xImage(
         segment_size=segment_size,
-        total_size=len(data),
-        image_sha256=sha256(data).hexdigest(),
+        total_size=len(data_view),
+        image_sha256=sha256(data_view).hexdigest(),
         segments=segments,
     )
 
