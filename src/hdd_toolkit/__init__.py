@@ -10,6 +10,12 @@ from hdd_toolkit.ata.commands import (
     ATASecurityCommands,
 )
 from hdd_toolkit.ata.hitachi_vsc import HitachiSAModule, HitachiVSCClient
+from hdd_toolkit.ata.idle3 import (
+    IDLE3_DISABLED,
+    WDIdle3Client,
+    decode_timer_v100,
+    decode_timer_v103,
+)
 from hdd_toolkit.ata.sat import SATCmd, SATLayer
 from hdd_toolkit.ata.seagate_f3_terminal import (
     F3Level,
@@ -135,6 +141,7 @@ from hdd_toolkit.samsung_mex.safe_uart import SamsungSafeUARTClient
 
 __all__ = [
     "ATA_PASS_THROUGH_EX",
+    "IDLE3_DISABLED",
     "SAMSUNG_840_EVO_FW_HISTORY",
     "WD_SA_ROM_MAP",
     "WD_VSC",
@@ -223,6 +230,7 @@ __all__ = [
     "VWCState",
     "VWCStatus",
     "WDFirmwareParser",
+    "WDIdle3Client",
     "WDPassportBridgeCmd",
     "WDPassportKeyRecovery",
     "WDPassportSecStatus",
@@ -250,6 +258,8 @@ __all__ = [
     "build_read_capacity_16_cdb",
     "build_receive_diagnostic_cdb",
     "build_sa_sector_descriptor",
+    "decode_timer_v100",
+    "decode_timer_v103",
     "deploy_hot_patch",
     "diff_firmware",
     "dump_all_overlays",

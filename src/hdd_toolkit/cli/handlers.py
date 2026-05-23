@@ -11,6 +11,7 @@ from hdd_toolkit.ata.commands import (
     ATASecurityCommands,
 )
 from hdd_toolkit.ata.hitachi_vsc import HitachiVSCClient
+from hdd_toolkit.ata.idle3 import IDLE3_DISABLED, WDIdle3Client
 from hdd_toolkit.ata.sat import SATLayer
 from hdd_toolkit.ata.seagate_f3_terminal import SeagateF3ROMMap, SeagateF3Terminal
 from hdd_toolkit.ata.seagate_vsc import SeagateF3SCTClient, SeagateSAModule
@@ -2057,6 +2058,40 @@ def cmd_wd_passport_status_cdb(args):
         ok(f"Saved to {args.output}")
 
 
+# == WD IntelliPark idle3 timer ===============================================
+
+
+def cmd_wd_idle3_get(args):
+    hdr(f"WD idle3 timer: {args.drive}")
+    with ATADevice(args.drive) as dev:
+        client = WDIdle3Client(dev)
+        raw = client.read_timer()
+        scale = args.scale or "raw"
+        ok(f"Idle3 timer: {WDIdle3Client.decode_timer(raw, scale)}")
+
+
+def cmd_wd_idle3_set(args):
+    hdr(f"WD idle3 timer set: {args.drive}")
+    value = int(args.value, 0) if isinstance(args.value, str) else int(args.value)
+    if not (1 <= value <= 255):
+        err("Timer value must be 1-255 (use wd-idle3-disable to disable)")
+        return
+    with ATADevice(args.drive) as dev:
+        client = WDIdle3Client(dev)
+        client.write_timer(value)
+    ok(f"Idle3 timer set to {value} (0x{value:02X})")
+    warn("Power cycle (not reboot) required for the new setting to take effect")
+
+
+def cmd_wd_idle3_disable(args):
+    hdr(f"WD idle3 timer disable: {args.drive}")
+    with ATADevice(args.drive) as dev:
+        client = WDIdle3Client(dev)
+        client.write_timer(IDLE3_DISABLED)
+    ok("Idle3 timer disabled")
+    warn("Power cycle (not reboot) required for the new setting to take effect")
+
+
 # =============================================================================
 # Argument parser
 # =============================================================================
@@ -3148,6 +3183,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.add_argument("-o", "--output", help="Save 10-byte CDB to file")
     sp.set_defaults(func=cmd_wd_passport_status_cdb)
+
+    # == WD IntelliPark idle3 timer ============================================
+    sp = sub.add_parser(
+        "wd-idle3-get",
+        help="Read WD IntelliPark idle3 head-parking timer (idle3ctl -g)",
+    )
+    sp.add_argument("--drive", required=True, help=r"Drive path e.g. /dev/sdb")
+    sp.add_argument(
+        "--scale",
+        choices=["raw", "v100", "v103"],
+        default="raw",
+        help="Timer decode scale: raw (default), v100 (0.1s/unit), v103 (mixed)",
+    )
+    sp.set_defaults(func=cmd_wd_idle3_get)
+
+    sp = sub.add_parser(
+        "wd-idle3-set",
+        help="Set WD IntelliPark idle3 timer raw value 1-255 (idle3ctl -s)",
+    )
+    sp.add_argument("--drive", required=True, help=r"Drive path e.g. /dev/sdb")
+    sp.add_argument("value", help="Raw timer byte 1-255 (decimal or 0x hex)")
+    sp.set_defaults(func=cmd_wd_idle3_set)
+
+    sp = sub.add_parser(
+        "wd-idle3-disable",
+        help="Disable WD IntelliPark idle3 head-parking timer (idle3ctl -d)",
+    )
+    sp.add_argument("--drive", required=True, help=r"Drive path e.g. /dev/sdb")
+    sp.set_defaults(func=cmd_wd_idle3_disable)
 
     return p
 

@@ -92,6 +92,9 @@ from hdd_toolkit.cli.handlers import (
     cmd_toshiba_parse,
     cmd_usb_identify,
     cmd_usb_list,
+    cmd_wd_idle3_disable,
+    cmd_wd_idle3_get,
+    cmd_wd_idle3_set,
     cmd_write_ram,
     main,
 )
@@ -190,6 +193,9 @@ __all__ = [
     "cmd_toshiba_parse",
     "cmd_usb_identify",
     "cmd_usb_list",
+    "cmd_wd_idle3_disable",
+    "cmd_wd_idle3_get",
+    "cmd_wd_idle3_set",
     "cmd_write_ram",
     "main",
 ]

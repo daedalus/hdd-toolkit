@@ -65,6 +65,7 @@ def test_parser_has_all_commands():
         "hitachi-sa-info", "hitachi-sa-read", "hitachi-sa-write",
         "seagate-f3-cmd", "seagate-f3-sa-read", "seagate-f3-head-select",
         "wd-passport-probe", "wd-passport-keyrec", "wd-passport-status-cdb",
+        "wd-idle3-get", "wd-idle3-set", "wd-idle3-disable",
     }
     missing = expected - seen
     extra = seen - expected
