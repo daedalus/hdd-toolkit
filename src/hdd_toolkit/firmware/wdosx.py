@@ -1,13 +1,27 @@
 import struct
 from dataclasses import dataclass, replace
 
+WFSE_PAGE_SIZE = 0x1000
+WFSE_UI_HEADER_BASE = 6
+WFSE_UI_HEADER_ENTRY_SIZE = 4
+
 
 class WDOSXFormatError(ValueError):
-    """Raised when WDOSX metadata or packed content is malformed."""
+    """Raised when WDOSX metadata or packed content is malformed.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
 
 
 @dataclass(frozen=True)
 class WdXMetadata:
+    """Parsed WDOSX `$WdX` metadata.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
+
     signature: bytes
     revision: int
     flags: int
@@ -19,6 +33,12 @@ class WdXMetadata:
 
 @dataclass(frozen=True)
 class WFSEEntry:
+    """Parsed `WFSE` packed file entry.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
+
     offset: int
     signature: bytes
     size: int
@@ -31,6 +51,12 @@ class WFSEEntry:
 
 
 class _WfsePageDecoder:
+    """Page-oriented WDOSX `WFSE` decompressor.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
+
     def __init__(self, packed_content: bytes, output_size: int):
         self.src = packed_content
         self.src_index = 0
@@ -41,24 +67,24 @@ class _WfsePageDecoder:
         self.wbp = 0
 
     @staticmethod
-    def _shift_left(value: int, shift_in_bit: int = 0) -> tuple[int, int]:
-        shifted = (value << 1) + shift_in_bit
+    def _shift_left_with_carry(value: int, carry_in: int = 0) -> tuple[int, int]:
+        shifted = (value << 1) + carry_in
         return shifted & 0xFF, shifted >> 8
 
     @classmethod
-    def _shift_left_word(cls, value: int, shift_in_bit: int = 0) -> tuple[int, int]:
+    def _shift_left_word(cls, value: int, carry_in: int = 0) -> tuple[int, int]:
         lower = value & 0xFF
         upper = value >> 8
-        lower, carry = cls._shift_left(lower, shift_in_bit)
-        upper, carry = cls._shift_left(upper, carry)
+        lower, carry = cls._shift_left_with_carry(lower, carry_in)
+        upper, carry = cls._shift_left_with_carry(upper, carry)
         return (upper << 8) + lower, carry
 
     def _get_bit(self) -> int:
-        self.tag_bits, next_bit = self._shift_left(self.tag_bits)
+        self.tag_bits, next_bit = self._shift_left_with_carry(self.tag_bits)
         if self.tag_bits == 0:
             self.tag_bits = self.src[self.src_index]
             self.src_index += 1
-            self.tag_bits, next_bit = self._shift_left(self.tag_bits, next_bit)
+            self.tag_bits, next_bit = self._shift_left_with_carry(self.tag_bits, next_bit)
         return next_bit
 
     def _read_number(self, start_value: int) -> int:
@@ -77,7 +103,7 @@ class _WfsePageDecoder:
         num_bytes_to_copy = self._read_number(1)
         dst_index_offset = self._read_number(1)
 
-        self.dh, carry_flag = self._shift_left(self.dh)
+        self.dh, carry_flag = self._shift_left_with_carry(self.dh)
         dst_index_offset = dst_index_offset - 2 - carry_flag
 
         if dst_index_offset >= 0:
@@ -107,7 +133,7 @@ class _WfsePageDecoder:
             if do_copy_literal:
                 self._copy_literal()
 
-            if (self.dst_index - start_of_page) >= 0x1000:
+            if (self.dst_index - start_of_page) >= WFSE_PAGE_SIZE:
                 return
             if self.src_index >= len(self.src):
                 return
@@ -119,14 +145,29 @@ class _WfsePageDecoder:
     def decompress(self) -> bytes:
         if not self.dst:
             return b""
-        page_count = (len(self.dst) + 0xFFF) // 0x1000
+        page_count = (len(self.dst) + (WFSE_PAGE_SIZE - 1)) // WFSE_PAGE_SIZE
         for _ in range(page_count):
             self.tag_bits = 0x80
             self._main_loop()
         return bytes(self.dst)
 
 
+def wfse_ui_header_size(virtual_size: int) -> int:
+    """Calculate the WDOSX UI-header size for a given virtual output size.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
+    pages = (virtual_size + (WFSE_PAGE_SIZE - 1)) // WFSE_PAGE_SIZE
+    return (pages * WFSE_UI_HEADER_ENTRY_SIZE) + WFSE_UI_HEADER_BASE
+
+
 def validate_wdosx_executable(executable_data: bytes | bytearray | memoryview) -> None:
+    """Validate WDOSX executable signatures.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
     data = bytes(executable_data)
     if len(data) < 2 or data[:2] != b"MZ":
         raise WDOSXFormatError("Not an MZ executable")
@@ -137,6 +178,11 @@ def validate_wdosx_executable(executable_data: bytes | bytearray | memoryview) -
 def parse_wdx_metadata(
     executable_data: bytes | bytearray | memoryview, offset: int = 0x20
 ) -> WdXMetadata:
+    """Parse the `$WdX` metadata structure.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
     data = bytes(executable_data)
     if len(data) - offset < 20:
         raise WDOSXFormatError("WDX metadata is truncated")
@@ -159,6 +205,11 @@ def parse_wdx_metadata(
 
 
 def parse_wfse_entry(executable_data: bytes | bytearray | memoryview, offset: int) -> WFSEEntry:
+    """Parse a single `WFSE` entry at the given offset.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
     data = bytes(executable_data)
     if len(data) - offset < 17:
         raise WDOSXFormatError("WFSE entry is too short")
@@ -166,7 +217,7 @@ def parse_wfse_entry(executable_data: bytes | bytearray | memoryview, offset: in
     signature, size, virtual_size, flags = struct.unpack_from("<4sIII", data, offset)
     if signature != b"WFSE":
         raise WDOSXFormatError("Invalid WFSE signature")
-    if size <= 0:
+    if size == 0:
         raise WDOSXFormatError("WFSE entry has invalid size")
 
     end_of_entry = offset + size
@@ -179,7 +230,7 @@ def parse_wfse_entry(executable_data: bytes | bytearray | memoryview, offset: in
         raise WDOSXFormatError("WFSE filename is not null-terminated")
     filename = data[name_start:name_end].decode("latin-1")
 
-    ui_header_size = ((virtual_size + 0xFFF) // 0x1000 * 4) + 6
+    ui_header_size = wfse_ui_header_size(virtual_size)
     packed_start = name_end + 1 + ui_header_size
     if packed_start > end_of_entry:
         raise WDOSXFormatError("WFSE packed content offset is invalid")
@@ -200,6 +251,11 @@ def parse_wfse_entry(executable_data: bytes | bytearray | memoryview, offset: in
 def parse_wfse_entries(
     executable_data: bytes | bytearray | memoryview, metadata: WdXMetadata
 ) -> list[WFSEEntry]:
+    """Parse all chained `WFSE` entries referenced by metadata.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
     data = bytes(executable_data)
     entries: list[WFSEEntry] = []
     offset = metadata.wfse_start
@@ -211,6 +267,11 @@ def parse_wfse_entries(
 
 
 def unpack_wfse_entry(entry: WFSEEntry, *, strict: bool = False) -> bytes:
+    """Decompress one `WFSE` entry payload.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
     decoder = _WfsePageDecoder(entry.packed_content, entry.virtual_size)
     try:
         return decoder.decompress()
@@ -223,6 +284,11 @@ def unpack_wfse_entry(entry: WFSEEntry, *, strict: bool = False) -> bytes:
 def unpack_wdosx_executable(
     executable_data: bytes | bytearray | memoryview, *, strict: bool = False
 ) -> tuple[WdXMetadata, list[WFSEEntry]]:
+    """Parse and unpack all `WFSE` entries from a WDOSX executable blob.
+
+    Sources:
+      - 0xDB/WDOSXUnpacker behavior (clean-room reimplementation)
+    """
     data = bytes(executable_data)
     validate_wdosx_executable(data)
     metadata = parse_wdx_metadata(data)

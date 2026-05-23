@@ -9,12 +9,13 @@ from hdd_toolkit.firmware.wdosx import (
     parse_wfse_entry,
     unpack_wdosx_executable,
     validate_wdosx_executable,
+    wfse_ui_header_size,
 )
 
 
 def _build_wfse_entry(filename: str, virtual_size: int, packed_content: bytes) -> bytes:
     name_bytes = filename.encode("ascii")
-    ui_header_size = ((virtual_size + 0xFFF) // 0x1000 * 4) + 6
+    ui_header_size = wfse_ui_header_size(virtual_size)
     body = bytearray()
     body.extend(struct.pack("<4sIII", b"WFSE", 0, virtual_size, 0))
     body.extend(name_bytes)

@@ -25,7 +25,11 @@ WD_DEOBFUSCATION_KEY = bytes.fromhex(
 
 
 def wd_xor_deobfuscate(data: bytes | bytearray | memoryview, offset: int = 0) -> bytes:
-    """Decode WD-obfuscated bytes using the repeating 513-byte XOR key."""
+    """Decode WD-obfuscated bytes using the repeating 513-byte XOR key.
+
+    Sources:
+      - ddcc/drive_firmware wdc utility behavior (clean-room reimplementation)
+    """
     src = bytes(data)
     key_len = len(WD_DEOBFUSCATION_KEY)
     return bytes(

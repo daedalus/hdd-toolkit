@@ -1,6 +1,8 @@
 import struct
 from dataclasses import dataclass, field
 
+from Crypto.Cipher import AES
+
 SAMSUNG_MAGIC_SHUFFLE = bytes.fromhex(
     "101112131415161718191a1b1c1d1e1f303132333435363738393a3b3c3d3e3f"
     "505152535455565758595a5b5c5d5e5f707172737475767778797a7b7c7d7e7f"
@@ -13,19 +15,25 @@ SAMSUNG_MAGIC_SHUFFLE = bytes.fromhex(
 )
 SAMSUNG_MAGIC_KEY = bytes.fromhex("56e47a38c5598974bc46903dba290349")
 SAMSUNG_MAGIC_IV_PREFIX = bytes.fromhex("8ce82eefbea0da3c44699ed7")
+SAMSUNG_MAGIC_COUNTER_WINDOW = 32
 
 
 def _as_bytes(data: bytes | bytearray | memoryview) -> bytes:
-    if isinstance(data, (bytes, bytearray, memoryview)):
+    try:
         return bytes(data)
-    raise TypeError("Expected bytes-like input")
+    except TypeError as exc:
+        raise TypeError("Expected bytes-like input") from exc
 
 
 def _invert_table(table: bytes) -> bytes:
-    if len(table) != 256 or len(set(table)) != 256:
-        raise ValueError("Shuffle table must contain each byte exactly once")
+    if len(table) != 256:
+        raise ValueError("Shuffle table must be exactly 256 bytes")
     inverse = bytearray(256)
+    seen = bytearray(256)
     for index, value in enumerate(table):
+        if seen[value]:
+            raise ValueError("Shuffle table must contain each byte exactly once")
+        seen[value] = 1
         inverse[value] = index
     return bytes(inverse)
 
@@ -34,33 +42,53 @@ SAMSUNG_MAGIC_UNSHUFFLE = _invert_table(SAMSUNG_MAGIC_SHUFFLE)
 
 
 def samsung_encode_byte(value: int) -> int:
-    """Encode one byte with Samsung's PM871/840 obfuscation primitive."""
+    """Encode one byte with Samsung's PM871/840 obfuscation primitive.
+
+    Sources:
+      - ddcc/drive_firmware samsung utility behavior (clean-room reimplementation)
+    """
     if value & 0x80:
         return ((~(value << 1)) & 0xE0) | (value & 0x0F)
     return ((value << 1) & 0xE0) | 0x10 | (value & 0x0F)
 
 
 def samsung_decode_byte(value: int) -> int:
-    """Decode one byte with Samsung's PM871/840 obfuscation primitive."""
+    """Decode one byte with Samsung's PM871/840 obfuscation primitive.
+
+    Sources:
+      - ddcc/drive_firmware samsung utility behavior (clean-room reimplementation)
+    """
     if value & 0x10:
         return ((value >> 1) & 0x70) | (value & 0x0F)
     return ((~(value >> 1)) & 0x70) | 0x80 | (value & 0x0F)
 
 
 def samsung_encode(data: bytes | bytearray | memoryview) -> bytes:
-    """Encode bytes using Samsung's bytewise obfuscation transform."""
+    """Encode bytes using Samsung's bytewise obfuscation transform.
+
+    Sources:
+      - ddcc/drive_firmware samsung utility behavior (clean-room reimplementation)
+    """
     src = _as_bytes(data)
     return bytes(samsung_encode_byte(value) for value in src)
 
 
 def samsung_decode_bytewise(data: bytes | bytearray | memoryview) -> bytes:
-    """Decode bytes using Samsung's bytewise obfuscation transform."""
+    """Decode bytes using Samsung's bytewise obfuscation transform.
+
+    Sources:
+      - ddcc/drive_firmware samsung utility behavior (clean-room reimplementation)
+    """
     src = _as_bytes(data)
     return bytes(samsung_decode_byte(value) for value in src)
 
 
 def samsung_decode(data: bytes | bytearray | memoryview) -> bytes:
-    """Backward-compatible alias for Samsung bytewise decode."""
+    """Backward-compatible alias for Samsung bytewise decode.
+
+    Sources:
+      - ddcc/drive_firmware samsung utility behavior (clean-room reimplementation)
+    """
     return samsung_decode_bytewise(data)
 
 
@@ -77,25 +105,25 @@ def samsung_magic_deobfuscate(
     The transform uses AES-ECB to generate 16-byte keystream blocks from:
     ``iv_prefix (12 bytes) + counter_be (4 bytes)``.
     The 32-bit counter starts at 1 and wraps every 32 blocks.
+
+    Sources:
+      - chrivers/samsung-firmware-magic behavior (clean-room reimplementation)
     """
     src = _as_bytes(data)
     if len(key) != 16:
         raise ValueError("AES key must be 16 bytes")
     if len(iv_prefix) != 12:
         raise ValueError("IV prefix must be 12 bytes")
-    unshuffle = _invert_table(shuffle_table)
-
-    try:
-        from Crypto.Cipher import AES  # type: ignore[import]
-    except ImportError as exc:
-        raise RuntimeError(
-            "samsung_magic_deobfuscate requires pycryptodome: pip install pycryptodome"
-        ) from exc
+    unshuffle = (
+        SAMSUNG_MAGIC_UNSHUFFLE
+        if shuffle_table == SAMSUNG_MAGIC_SHUFFLE
+        else _invert_table(shuffle_table)
+    )
 
     cipher = AES.new(key, AES.MODE_ECB)
     out = bytearray()
     for block_index, start in enumerate(range(0, len(src), 16)):
-        counter = (block_index % 32) + 1
+        counter = (block_index % SAMSUNG_MAGIC_COUNTER_WINDOW) + 1
         keystream = cipher.encrypt(iv_prefix + counter.to_bytes(4, "big"))
         block = src[start : start + 16]
         xored = bytes(a ^ b for a, b in zip(block, keystream))
