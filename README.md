@@ -10,6 +10,8 @@ bridge platforms.
 
 - **Firmware Parsers:** WD LZHUF, Samsung nibble-swap, Seagate .lod,
   Toshiba firmware images
+- **Firmware Deobfuscation:** Samsung bytewise + AES/shuffle transforms,
+  WD 513-byte XOR key decode, WDOSX packed executable extraction
 - **ATA Passthrough:** Linux sg_io and Windows DeviceIoControl for
   direct drive communication
 - **WD VSC Protocol:** Read/write RAM, dump overlay modules,
