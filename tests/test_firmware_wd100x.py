@@ -1,6 +1,10 @@
 import pytest
 
-from hdd_toolkit.firmware.wd100x import WD100xFormatError, extract_wd100x_segments, parse_wd100x_rom
+from hdd_toolkit.firmware.wd100x import (
+    WD100xFormatError,
+    extract_wd100x_segments,
+    parse_wd100x_rom,
+)
 
 
 def test_parse_wd100x_rom_default_segmentation():
