@@ -192,7 +192,7 @@ class SamsungHDDEmulator:
         """Write each mapped memory region to a separate .bin file."""
         if self._mu is None:
             return
-        ts = datetime.datetime.now().isoformat()
+        ts = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
         dest = os.path.join(output_dir, ts)
         os.makedirs(dest, exist_ok=True)
         for map_start, map_end, _perms in self._mu.mem_regions():
@@ -330,10 +330,8 @@ class SamsungHDDEmulator:
     def _disassemble(self, code: bytes, addr: int = 0) -> str:
         if self._md is None:
             return ""
-        if self._mu.query(UC_QUERY_MODE) == UC_MODE_LITTLE_ENDIAN:
-            self._md.mode = CS_MODE_LITTLE_ENDIAN
-        else:
-            self._md.mode = CS_MODE_THUMB
+        is_thumb = bool(self._mu.query(UC_QUERY_MODE) & UC_MODE_THUMB)
+        self._md.mode = CS_MODE_THUMB if is_thumb else CS_MODE_LITTLE_ENDIAN
         lines = [f"{ins.mnemonic} {ins.op_str}" for ins in self._md.disasm(code, addr)]
         return lines[0] if lines else ""
 
