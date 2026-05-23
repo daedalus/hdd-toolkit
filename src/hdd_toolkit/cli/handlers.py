@@ -62,6 +62,7 @@ from hdd_toolkit.firmware.samsung import SamsungFirmwareParser, samsung_decode
 from hdd_toolkit.firmware.seagate import SeagateFWLoader
 from hdd_toolkit.firmware.toshiba import ToshibaFirmwareParser
 from hdd_toolkit.firmware.wd import WDFirmwareParser
+from hdd_toolkit.firmware.wd100x import parse_wd100x_rom
 from hdd_toolkit.hw.data_recovery import SATADataRecoveryOps
 from hdd_toolkit.hw.hpa_dco import HPADCOAccess
 from hdd_toolkit.hw.issp import ISSPEngine
@@ -940,6 +941,31 @@ def cmd_decode_samsung(args):
     out = args.output or (args.file + ".decoded")
     Path(out).write_bytes(decoded)
     ok(f"Decoded {len(decoded)} bytes -- {out}")
+
+
+def cmd_wd100x_parse(args):
+    hdr(f"Parse WD100x ROM: {args.file}")
+    data = Path(args.file).read_bytes()
+    image = parse_wd100x_rom(
+        data,
+        segment_size=args.segment_size,
+        require_aligned=args.require_aligned,
+    )
+    ok(
+        f"Image size: {image.total_size} bytes, "
+        f"segment_size: 0x{image.segment_size:X}, "
+        f"segments: {len(image.segments)}"
+    )
+    info(f"Image SHA256: {image.image_sha256}")
+
+    if args.extract:
+        out = Path(args.extract)
+        out.mkdir(parents=True, exist_ok=True)
+        for seg in image.segments:
+            name = f"wd100x_seg{seg.index:02d}_offset{seg.offset:06X}.bin"
+            out_file = out / name
+            out_file.write_bytes(seg.data)
+            ok(f"Wrote {out_file}")
 
 
 def cmd_scan_strings(args):
@@ -2112,6 +2138,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--format", choices=["wd", "samsung"], default="wd")
     sp.add_argument("--extract", metavar="DIR", help="Extract sections to directory")
     sp.set_defaults(func=cmd_parse_firmware)
+
+    sp = sub.add_parser("wd100x-parse", help="Parse and optionally extract WD100x ROM segments")
+    sp.add_argument("file")
+    sp.add_argument("--segment-size", type=lambda x: int(x, 0), default=0x800)
+    sp.add_argument(
+        "--require-aligned",
+        action="store_true",
+        help="Require ROM size to be an even multiple of segment size",
+    )
+    sp.add_argument("--extract", metavar="DIR", help="Extract segmented ROM chunks to directory")
+    sp.set_defaults(func=cmd_wd100x_parse)
 
     sp = sub.add_parser("decode-samsung", help="Remove Samsung nibble-swap obfuscation")
     sp.add_argument("file")
