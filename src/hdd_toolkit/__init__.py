@@ -84,13 +84,33 @@ from hdd_toolkit.exploit.xbox360_firmware_spoof import (
     Xbox360SecuritySector,
 )
 from hdd_toolkit.firmware.detection import FirmwareDetection
+from hdd_toolkit.firmware.emulator import SamsungHDDEmulator
 from hdd_toolkit.firmware.patcher import FirmwarePatch, FirmwarePatcher
 from hdd_toolkit.firmware.samsung import (
     SamsungFirmwareParser,
     SamsungSection,
     samsung_decode,
 )
-from hdd_toolkit.firmware.seagate import SeagateFWLoader, SeagateLODSection
+from hdd_toolkit.firmware.seagate import (
+    ARTIFACT_8051_FW,
+    ARTIFACT_BOOT_FW,
+    ARTIFACT_FLASH_LOADER,
+    ARTIFACT_MAIN_FW,
+    ARTIFACT_MAYBE_BSS,
+    ARTIFACT_NAMES,
+    ARTIFACT_OVERLAY,
+    ARTIFACT_PADDING,
+    SeagateArtifact,
+    SeagateArtifactParser,
+    SeagateChunkSection,
+    SeagateCRC16,
+    SeagateFWLoader,
+    SeagateLODSection,
+    SeagateOverlayInfo,
+    SeagateSectionRun,
+    SeagateSectionsHeader,
+    SeagateSegmentHeader,
+)
 from hdd_toolkit.firmware.toshiba import ToshibaFirmwareImage, ToshibaFirmwareParser
 from hdd_toolkit.firmware.wd import LZHUFDecoder, WDFirmwareParser, WDSection
 from hdd_toolkit.hw.data_recovery import ReadRetryResult, SATADataRecoveryOps
@@ -140,6 +160,14 @@ from hdd_toolkit.samsung_mex.ncq import SamsungNCQParser
 from hdd_toolkit.samsung_mex.safe_uart import SamsungSafeUARTClient
 
 __all__ = [
+    "ARTIFACT_8051_FW",
+    "ARTIFACT_BOOT_FW",
+    "ARTIFACT_FLASH_LOADER",
+    "ARTIFACT_MAIN_FW",
+    "ARTIFACT_MAYBE_BSS",
+    "ARTIFACT_NAMES",
+    "ARTIFACT_OVERLAY",
+    "ARTIFACT_PADDING",
     "ATA_PASS_THROUGH_EX",
     "IDLE3_DISABLED",
     "SAMSUNG_840_EVO_FW_HISTORY",
@@ -204,17 +232,26 @@ __all__ = [
     "SamsungFlashChannel",
     "SamsungFlashCmd",
     "SamsungGPIO",
+    "SamsungHDDEmulator",
     "SamsungMEXMap",
     "SamsungNCQParser",
     "SamsungSafeUARTClient",
     "SamsungSection",
     "SanDiskNVMeVSC",
+    "SeagateArtifact",
+    "SeagateArtifactParser",
+    "SeagateCRC16",
+    "SeagateChunkSection",
     "SeagateF3ROMMap",
     "SeagateF3SCTClient",
     "SeagateF3Terminal",
     "SeagateFWLoader",
     "SeagateLODSection",
+    "SeagateOverlayInfo",
     "SeagateSAModule",
+    "SeagateSectionRun",
+    "SeagateSectionsHeader",
+    "SeagateSegmentHeader",
     "ServiceArea",
     "SpareSectorForensics",
     "TCGDiscovery0",

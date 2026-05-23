@@ -43,11 +43,13 @@ serial = ["pyserial"]
 asm = ["keystone-engine"]
 disasm = ["capstone"]
 yaml = ["PyYAML"]
+emulate = ["unicorn", "capstone"]
 all = [
     "pyserial",
     "keystone-engine",
     "capstone",
     "PyYAML",
+    "unicorn",
 ]
 
 [project.scripts]
@@ -110,6 +112,7 @@ fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/hdd_toolkit/cli/*" = ["T201"]
+"src/hdd_toolkit/firmware/emulator.py" = ["T201"]
 
 [tool.ruff.format]
 quote-style = "double"
