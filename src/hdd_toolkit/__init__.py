@@ -113,6 +113,13 @@ from hdd_toolkit.firmware.seagate import (
 )
 from hdd_toolkit.firmware.toshiba import ToshibaFirmwareImage, ToshibaFirmwareParser
 from hdd_toolkit.firmware.wd import LZHUFDecoder, WDFirmwareParser, WDSection
+from hdd_toolkit.firmware.wd100x import (
+    WD100xFormatError,
+    WD100xImage,
+    WD100xSegment,
+    extract_wd100x_segments,
+    parse_wd100x_rom,
+)
 from hdd_toolkit.hw.data_recovery import ReadRetryResult, SATADataRecoveryOps
 from hdd_toolkit.hw.hpa_dco import HPADCOAccess
 from hdd_toolkit.hw.issp import ISSPEngine, ISSPVector
@@ -268,6 +275,9 @@ __all__ = [
     "VWCStatus",
     "WDFirmwareParser",
     "WDIdle3Client",
+    "WD100xFormatError",
+    "WD100xImage",
+    "WD100xSegment",
     "WDPassportBridgeCmd",
     "WDPassportKeyRecovery",
     "WDPassportSecStatus",
@@ -314,4 +324,6 @@ __all__ = [
     "samsung_decode",
     "scan_strings",
     "warn",
+    "extract_wd100x_segments",
+    "parse_wd100x_rom",
 ]

@@ -12,6 +12,7 @@ def test_parser_has_all_commands():
     seen = set(parser._subparsers._group_actions[0].choices.keys())
     expected = {
         "parse-firmware", "decode-samsung", "scan-strings", "scan-fptables",
+        "wd100x-parse",
         "diff", "list-vscs", "read-ram", "write-ram",
         "hot-patch", "benchmark", "dump-overlay", "dump-all-overlays",
         "jtag-shell", "jtag-dump", "jtag-bp", "jtag-regs",
